@@ -1,95 +1,119 @@
-from typing import TypedDict, Dict, Any
+from typing import TypedDict, List, Dict, Any
+
 from langgraph.graph import StateGraph, END
 
-# Agents
+from backend.app.graph.state import PharmacyState
+from backend.app.agents.memory_agent import memory_agent
 from backend.app.agents.conversation_agent import conversation_agent
 from backend.app.agents.safety_agent import safety_agent
 from backend.app.agents.action_agent import action_agent
+from backend.app.agents.predictive_refill_agent import predictive_refill_agent
 
-# Observability (optional)
-from backend.app.observability.langfuse_client import langfuse
-
-
-# -----------------------------
-# State Definition
-# -----------------------------
-class PharmacyState(TypedDict):
-    conversation: Dict[str, Any]
-    customer: Dict[str, Any]
-    extraction: Dict[str, Any]
-    reasoning: Dict[str, Any]
-    safety: Dict[str, Any]
-    execution: Dict[str, Any]
-    decision_trace: list
-    meta: Dict[str, Any]
+from backend.app.db.database import SessionLocal
+from backend.app.db.models import DecisionTrace
+from backend.app.db.models import Customer
+from backend.app.graph.builder import build_pharmacy_graph
 
 
-# -----------------------------
-# Build LangGraph Workflow
-# -----------------------------
+# -------------------------------------------------------------------
+# Persist decision traces (audit-grade observability)
+# -------------------------------------------------------------------
+
+def persist_decision_traces(state: PharmacyState):
+    db = SessionLocal()
+    try:
+        for trace in state.get("decision_trace", []):
+            db.add(
+                DecisionTrace(
+                    customer_id=state["customer"]["id"],
+                    agent=trace.get("agent"),
+                    input=trace.get("input"),
+                    reasoning=trace.get("reasoning"),
+                    decision=trace.get("decision"),
+                    output=trace.get("output"),
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
+
+
+# -------------------------------------------------------------------
+# Graph Builder
+# -------------------------------------------------------------------
+
 def build_pharmacy_graph():
     graph = StateGraph(PharmacyState)
 
-    graph.add_node("conversation_agent", conversation_agent)
-    graph.add_node("safety_agent", safety_agent)
-    graph.add_node("action_agent", action_agent)
+    # Nodes (agents)
+    graph.add_node("memory", memory_agent)
+    graph.add_node("conversation", conversation_agent)
+    graph.add_node("safety", safety_agent)
+    graph.add_node("action", action_agent)
+    graph.add_node("predictive_refill", predictive_refill_agent)
 
-    graph.set_entry_point("conversation_agent")
-    graph.add_edge("conversation_agent", "safety_agent")
+    # Flow
+    graph.set_entry_point("memory")
+    graph.add_edge("memory", "conversation")
+    graph.add_edge("conversation", "safety")
 
+    # Safety gate
     graph.add_conditional_edges(
-        "safety_agent",
-        lambda state: "action_agent" if state["safety"].get("approved") else END
+        "safety",
+        lambda state: "action" if state["safety"]["approved"] else "predictive_refill",
+        {
+            "action": "action",
+            "predictive_refill": "predictive_refill",
+        },
     )
 
-    graph.add_edge("action_agent", END)
+    graph.add_edge("action", "predictive_refill")
+    graph.add_edge("predictive_refill", END)
 
     return graph.compile()
 
 
-# -----------------------------
-# Run Workflow
-# -----------------------------
-def run_workflow():
-    pharmacy_graph = build_pharmacy_graph()
+# -------------------------------------------------------------------
+# CLI / Script Runner (optional, but useful)
+# -------------------------------------------------------------------
 
-    initial_state: PharmacyState = {
-        "conversation": {"message": "I need paracetamol 500mg"},
-        "customer": {"id": 1, "name": "Test User"},
-        "extraction": {},
-        "reasoning": {},
-        "safety": {},
-        "execution": {},
-        "decision_trace": [],
-        "meta": {}
-    }
+def run_workflow(customer_id: int, message: str) -> PharmacyState:
+    """
+    Public entrypoint for the Agentic Pharmacy Workflow.
+    Used by API, CLI, and tests.
+    """
 
-    final_state = pharmacy_graph.invoke(initial_state)
-
-    # ---- SAFE OBSERVABILITY (NO CRASH) ----
+    db = SessionLocal()
     try:
-        if hasattr(langfuse, "event"):
-            langfuse.event(
-                name="pharmacy_order_flow",
-                metadata={
-                    "customer_id": final_state["customer"]["id"],
-                    "llm": "llama3.1:8b",
-                    "decision_trace": final_state["decision_trace"]
-                }
-            )
-    except Exception:
-        pass  # Observability must NEVER block execution
+        customer = db.query(Customer).filter(
+            Customer.id == customer_id
+        ).first()
 
-    print("\nFINAL STATE:\n")
-    print(final_state)
+        if not customer:
+            raise ValueError("Customer not found")
 
-    print("\nDECISION TRACE (Judge-Visible CoT):\n")
-    for step in final_state["decision_trace"]:
-        print(step)
+        initial_state: PharmacyState = {
+            "conversation": {"message": message},
+            "customer": {"id": customer.id, "name": customer.name},
+            "extraction": {},
+            "safety": {},
+            "execution": {},
+            "decision_trace": [],
+            "meta": {}
+        }
+
+        pharmacy_graph = build_pharmacy_graph()
+        final_state = pharmacy_graph.invoke(initial_state)
+
+        return final_state
+
+    finally:
+        db.close()
 
 
-# -----------------------------
-# CLI Entry
-# -----------------------------
+# -------------------------------------------------------------------
+# Allow `python -m backend.app.graph.pharmacy_workflow`
+# -------------------------------------------------------------------
+
 if __name__ == "__main__":
     run_workflow()

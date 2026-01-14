@@ -1,0 +1,118 @@
+{
+  "run_id": "b9b96d75-9e58-48f0-8335-6b3a9e99b4e0",
+  "timestamp": "2026-01-14T19:05:51.453574",
+  "customer": {
+    "id": 1,
+    "name": "Test User"
+  },
+  "conversation": {
+    "message": "I need paracetamol 500mg"
+  },
+  "safety": {
+    "approved": true,
+    "reason": "All safety checks passed",
+    "violations": []
+  },
+  "execution": {
+    "order_id": 1,
+    "actions": [
+      "order_created",
+      "inventory_updated",
+      "order_history_saved"
+    ]
+  },
+  "decision_trace": [
+    {
+      "agent": "memory_agent",
+      "input": {
+        "customer_id": 1
+      },
+      "reasoning": "Fetched 0 previous orders",
+      "decision": "context_provided",
+      "output": []
+    },
+    {
+      "agent": "conversation_agent",
+      "input": "I need paracetamol 500mg",
+      "reasoning": {
+        "model": "llama3.1:8b",
+        "reasoning_type": "long_chain",
+        "confidence": "high",
+        "steps_used": [
+          "intent_inference",
+          "entity_extraction",
+          "quantity_inference",
+          "dosage_normalization"
+        ]
+      },
+      "decision": "extracted_structured_request",
+      "output": {
+        "intent": "order",
+        "medicines": [
+          {
+            "name": "Paracetamol",
+            "quantity": 1,
+            "dosage": "500mg"
+          }
+        ]
+      }
+    },
+    {
+      "agent": "safety_agent",
+      "input": [
+        {
+          "name": "Paracetamol",
+          "quantity": 1,
+          "dosage": "500mg"
+        }
+      ],
+      "reasoning": [
+        "Found medicine 'Paracetamol 500mg' in database",
+        "Stock sufficient for Paracetamol 500mg",
+        "No prescription required for Paracetamol 500mg"
+      ],
+      "decision": "approved",
+      "output": {
+        "approved": true,
+        "reason": "All safety checks passed",
+        "violations": []
+      }
+    },
+    {
+      "agent": "action_agent",
+      "input": [
+        {
+          "medicine_id": 1,
+          "quantity": 1,
+          "dosage": "500mg"
+        }
+      ],
+      "reasoning": [
+        "Resolved 'Paracetamol 500mg' (ID 1), reduced stock by 1",
+        "Order 1 created successfully"
+      ],
+      "decision": "executed",
+      "output": {
+        "order_id": 1,
+        "actions": [
+          "order_created",
+          "inventory_updated",
+          "order_history_saved"
+        ]
+      }
+    },
+    {
+      "agent": "predictive_refill_agent",
+      "input": {
+        "customer_id": 1
+      },
+      "reasoning": "Analyzed order history, generated 0 alerts",
+      "decision": "alerts_generated",
+      "output": []
+    }
+  ],
+  "meta": {
+    "customer_history": [],
+    "refill_alerts": []
+  }
+}

@@ -1,196 +1,104 @@
-Agentic AI Pharmacy System
+# 🧠 Agentic AI Pharmacy System
 
-An offline-first, agentic AI system that transforms a traditional search-and-click pharmacy into an autonomous, safety-aware, proactive ecosystem.
+An autonomous, agent-based pharmacy backend that transforms traditional
+search-and-click ordering into a proactive, safety-first AI system.
 
-The system behaves like an expert pharmacist:
+This system behaves like an expert pharmacist:
+- Understands natural language (text)
+- Enforces prescription and stock rules
+- Predicts refill needs
+- Executes real backend actions autonomously
+- Provides full, judge-visible decision traces
 
-Understands natural language orders
+---
 
-Enforces prescription and stock rules
+## 🚀 Key Features
 
-Predicts refill needs
+### 🗣 Conversational Ordering
+- Natural language input
+- Robust extraction of medicine, dosage, and quantity
+- Handles messy human language
 
-Executes backend actions autonomously
+### 🛡 Safety & Policy Enforcement
+- Inventory is the single source of truth
+- Prescription enforcement
+- Stock validation
+- Quantity limits
 
-Exposes transparent agent reasoning (Chain-of-Thought)
+### 🔁 Autonomous Refill Intelligence
+- Background scheduler scans patient history
+- Predicts when medicines are running low
+- Generates proactive refill alerts
 
-Core Objectives
+### 🤖 Agentic Architecture
+Multiple specialized agents collaborate:
+- Memory Agent
+- Conversation Agent (LLM-powered)
+- Safety Agent (deterministic)
+- Action Agent
+- Predictive Refill Agent
 
-Replace manual pharmacy workflows with multi-agent autonomy
+### 🔍 Full Observability
+- Judge-visible decision traces
+- Clear explanation of why actions were approved or blocked
+- No black-box behavior
 
-Ensure safety, compliance, and traceability
+---
 
-Work offline first, deployable later
+## 🧩 System Architecture
 
-Use free and open tools
+User → /chat API
+→ Memory Agent
+→ Conversation Agent (LLM)
+→ Safety Agent
+→ Action Agent
+→ Refill Intelligence
+→ Database + Alerts
 
-Make agent reasoning auditable by judges
 
-System Architecture (Agentic Design)
+---
 
-The system is built as a multi-agent society, coordinated by a workflow graph.
+## 🛠 Tech Stack
 
-Agents
-Agent	Responsibility
-Conversation Agent	Understands messy human input, extracts intent, medicines, dosage
-Safety Agent	Enforces prescription rules, stock availability, safety checks
-Action Agent	Creates orders, updates inventory, triggers fulfillment
-Workflow (LangGraph)	Orchestrates agents and controls execution flow
+- **Backend**: FastAPI
+- **Agents**: LangGraph
+- **LLM**: LLaMA 3.1 (via Ollama, optional)
+- **Database**: SQLite
+- **ORM**: SQLAlchemy
+- **Containerization**: Docker
+- **Observability**: Decision Trace Logs
 
-Each agent:
+---
 
-Has a single responsibility
+## ⚙️ How to Run (Local)
 
-Makes independent decisions
-
-Writes its reasoning to a shared trace
-
-🔍 Chain-of-Thought & Observability
-Structured Reasoning (Judge-Visible)
-
-Instead of hidden LLM chain-of-thought, the system uses a structured decision trace.
-
-Each agent appends an entry like:
-{
-  "agent": "safety_agent",
-  "input": {...},
-  "reasoning": "Prescription not required and stock sufficient",
-  "decision": "approved",
-  "output": {...}
-}
-This allows judges to clearly see:
-
-How agents communicated
-
-Why an order was approved or rejected
-
-What safety rules were applied
-
-Observability (Langfuse)
-
-Langfuse is integrated as an optional observability layer
-
-Reasoning is forwarded if Langfuse is configured
-
-System runs fully without Langfuse (offline-safe)
-
-Observability never blocks execution.
-
-Technology Stack
-Backend
-
-Python 3.9
-
-FastAPI (mock APIs)
-
-SQLite (local, zero-setup)
-
-SQLAlchemy
-
-Agent Orchestration
-
-LangGraph
-
-LLM (Offline)
-
-LLaMA 3.1 8B
-
-Running locally via Ollama / LM Studio
-
-Observability
-
-Langfuse (optional)
-
-Frontend (Planned)
-
-Minimal chat UI
-
-Admin dashboard (inventory + alerts)
-
-Project Structure
-
-AI_PHARMA/
-├── backend/
-│   └── app/
-│       ├── agents/
-│       │   ├── conversation_agent.py
-│       │   ├── safety_agent.py
-│       │   └── action_agent.py
-│       ├── api/
-│       │   ├── medicines.py
-│       │   ├── customers.py
-│       │   └── orders.py
-│       ├── db/
-│       │   ├── database.py
-│       │   ├── models.py
-│       │   └── seed_data.py
-│       ├── graph/
-│       │   └── pharmacy_workflow.py
-│       ├── observability/
-│       │   └── langfuse_client.py
-│       └── main.py
-├── OBSERVABILITY.md
-├── README.md
-└── requirements.txt
-
-⚙️ How the Workflow Runs
-
-1. User input
-"I need paracetamol 500mg"
-2.Conversation Agent
-
-Extracts intent and medicine
-
-Infers quantity if missing
-
-3.Safety Agent
-
-Checks prescription requirement
-
-Validates stock availability
-
-Approves or blocks order
-
-4.Action Agent
-
-Creates order
-
-Updates inventory
-
-Triggers mock fulfillment
-
-5.Decision Trace
-
-All reasoning is logged and printed
-
-▶️ Running the System
-1. Create virtual environment
+### 1. Create virtual environment
+```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-2. Seed database
-python3 backend/app/db/seed_data.py
+2. Initialize database
+python3 -m backend.app.db.seed_data
 
-3. Run agent workflow
-python3 -m backend.app.graph.pharmacy_workflow
+3. Start server
+uvicorn backend.app.main:app --reload
 
-You will see:
+4. Open Swagger
+http://127.0.0.1:8000/docs
 
-Final state
+💬 Chat API Example
+curl -X POST http://127.0.0.1:8000/chat/ \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id":1,"message":"I need paracetamol 500mg"}'
 
-Full decision trace
 
-Agent-by-agent reasoning
+  
+Response:
+{
+  "approved": true,
+  "reply": "Order placed successfully",
+  "order_id": 3
+}
 
-🧪 Test Scenarios
 
-Simple OTC order (Paracetamol)
-
-Prescription-required medicine
-
-Out-of-stock request
-
-Ambiguous user input
-
-Proactive refill (logic ready)

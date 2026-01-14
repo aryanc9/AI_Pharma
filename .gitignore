@@ -1,17 +1,37 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
+*.so
+.Python
 
-# Virtual env
+# Virtual environment
 venv/
-
-# Env files
 .env
+.env.*
 
-# DB
+# SQLite databases
+*.db
 *.sqlite3
 
-# OS
+# Logs
+*.log
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Docker
+__pycache__/
+*.egg-info/
+
+# Langfuse / tracing secrets
+langfuse.env
+
+# Node (if frontend later)
+node_modules/

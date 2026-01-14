@@ -1,46 +1,72 @@
-# backend/app/db/seed_data.py
+from datetime import datetime, timedelta
 
-from .database import SessionLocal, engine, Base
-from .models import Customer, Medicine
+from backend.app.db.database import SessionLocal, engine, Base
+from backend.app.db.models import Customer, Medicine, Prescription
+
 
 def seed():
+    # Create tables
     Base.metadata.create_all(bind=engine)
+
+    # Create DB session
     db = SessionLocal()
 
-    if db.query(Medicine).count() == 0:
-        db.add_all([
-            Medicine(
-                name="Paracetamol 500mg",
-                generic_name="Paracetamol",
-                unit_type="tablet",
-                stock_quantity=200,
-                prescription_required=False,
-                reorder_level=50,
-                price=20
-            ),
-            Medicine(
-                name="Amlodipine 5mg",
-                generic_name="Amlodipine",
-                unit_type="tablet",
-                stock_quantity=120,
-                prescription_required=True,
-                reorder_level=30,
-                price=50
-            )
-        ])
+    try:
+        # ---------- Customers ----------
+        if db.query(Customer).count() == 0:
+            customer = Customer(name="Test User")
+            db.add(customer)
+            db.commit()
+        else:
+            customer = db.query(Customer).first()
 
-    if db.query(Customer).count() == 0:
-        db.add(
-            Customer(
-                name="John Doe",
-                phone="9999999999",
-                email="john@example.com",
-                is_new_user=False
-            )
-        )
+        # ---------- Medicines ----------
+        if db.query(Medicine).count() == 0:
+            medicines = [
+                Medicine(
+                    name="Paracetamol 500mg",
+                    stock_quantity=100,
+                    prescription_required=False
+                ),
+                Medicine(
+                    name="Amoxicillin 500mg",
+                    stock_quantity=50,
+                    prescription_required=True
+                ),
+            ]
+            db.add_all(medicines)
+            db.commit()
 
-    db.commit()
-    db.close()
+        medicines = db.query(Medicine).all()
+
+        # ---------- Prescriptions ----------
+        for med in medicines:
+            if med.prescription_required:
+                exists = (
+                    db.query(Prescription)
+                    .filter(
+                        Prescription.customer_id == customer.id,
+                        Prescription.medicine_id == med.id
+                    )
+                    .first()
+                )
+
+                if not exists:
+                    db.add(
+                        Prescription(
+                            customer_id=customer.id,
+                            medicine_id=med.id,
+                            valid_until=datetime.utcnow() + timedelta(days=30)
+                        )
+                    )
+
+        db.commit()
+
+        print("✅ Database seeded successfully")
+
+    finally:
+        db.close()
+
 
 if __name__ == "__main__":
     seed()

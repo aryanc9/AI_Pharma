@@ -1,119 +1,126 @@
+from datetime import datetime
+from sqlalchemy import func
+
+from backend.app.graph.state import PharmacyState
 from backend.app.db.database import SessionLocal
-from backend.app.services.inventory_service import get_all_medicines
+from backend.app.db.models import Medicine, Prescription
+from backend.app.rules.safety_rules import MAX_QTY_PER_ORDER
 
 
-def safety_agent(state):
+def safety_agent(state: PharmacyState) -> PharmacyState:
     """
-    Safety & Compliance Agent
+    Safety Agent (Rule-First, Deterministic)
 
     Responsibilities:
+    - Validate medicine existence
+    - Enforce stock limits
+    - Enforce quantity limits
     - Enforce prescription requirements
-    - Check stock availability
-    - Decide APPROVE / REJECT deterministically
-    - Explain WHY the decision was made (judge-visible)
+    - Produce judge-visible reasoning
     """
 
     db = SessionLocal()
 
-    medicines_requested = state.get("extraction", {}).get("medicines", [])
+    violations = []
+    reasoning_steps = []
 
-    # Safety object always exists
-    state["safety"] = {
-        "approved": False,
-        "reason": "Safety checks not executed"
-    }
+    customer_id = state["customer"]["id"]
+    medicines = state["extraction"].get("medicines", [])
 
-    # No medicines extracted
-    if not medicines_requested:
-        state["safety"] = {
-            "approved": False,
-            "reason": "No medicines requested"
-        }
+    for item in medicines:
+        name = item["name"].strip().lower()
+        quantity = item["quantity"]
 
-        state["decision_trace"].append({
-            "agent": "safety_agent",
-            "decision": "REJECTED",
-            "checks": ["extraction_present"],
-            "justification": "No medicines were extracted from user input"
-        })
-        return state
+        # 1. Medicine existence (SQLite-safe, partial match)
+        medicine = (
+            db.query(Medicine)
+            .filter(func.lower(Medicine.name).like(f"%{name}%"))
+            .first()
+        )
 
-    inventory = get_all_medicines(db)
-    inventory_map = {m.name.lower(): m for m in inventory}
+        if not medicine:
+            violations.append(f"Medicine not found: {item['name']}")
+            reasoning_steps.append(
+                f"Medicine '{item['name']}' not found in inventory"
+            )
+            continue
 
-    for item in medicines_requested:
-        medicine_name = item["name"].lower()
-        requested_qty = item["quantity"]
+        reasoning_steps.append(
+            f"Found medicine '{medicine.name}' in database"
+        )
 
-        # Medicine not found
-        if medicine_name not in inventory_map:
-            state["safety"] = {
-                "approved": False,
-                "reason": f"{item['name']} not found in inventory"
-            }
+        # 2. Quantity rule
+        if quantity > MAX_QTY_PER_ORDER:
+            violations.append(
+                f"Quantity {quantity} exceeds allowed limit ({MAX_QTY_PER_ORDER})"
+            )
+            reasoning_steps.append(
+                f"Requested quantity {quantity} exceeds max limit"
+            )
 
-            state["decision_trace"].append({
-                "agent": "safety_agent",
-                "decision": "REJECTED",
-                "checks": ["inventory_lookup"],
-                "justification": f"{item['name']} does not exist in inventory"
-            })
-            return state
+        # 3. Stock check
+        if medicine.stock_quantity < quantity:
+            violations.append(
+                f"Insufficient stock for {medicine.name} "
+                f"(available {medicine.stock_quantity})"
+            )
+            reasoning_steps.append(
+                f"Stock insufficient for {medicine.name}"
+            )
+        else:
+            reasoning_steps.append(
+                f"Stock sufficient for {medicine.name}"
+            )
 
-        medicine = inventory_map[medicine_name]
-
-        # Prescription required
+        # 4. Prescription check
         if medicine.prescription_required:
-            state["safety"] = {
-                "approved": False,
-                "reason": f"{medicine.name} requires a valid prescription"
-            }
+            prescription = (
+                db.query(Prescription)
+                .filter(
+                    Prescription.customer_id == customer_id,
+                    Prescription.medicine_id == medicine.id,
+                    Prescription.valid_until >= datetime.utcnow()
+                )
+                .first()
+            )
 
-            state["decision_trace"].append({
-                "agent": "safety_agent",
-                "decision": "REJECTED",
-                "checks": ["prescription_rule"],
-                "justification": {
-                    "medicine": medicine.name,
-                    "prescription_required": True
-                }
-            })
-            return state
+            if not prescription:
+                violations.append(
+                    f"Valid prescription required for {medicine.name}"
+                )
+                reasoning_steps.append(
+                    f"No valid prescription found for {medicine.name}"
+                )
+            else:
+                reasoning_steps.append(
+                    f"Valid prescription found for {medicine.name}"
+                )
+        else:
+            reasoning_steps.append(
+                f"No prescription required for {medicine.name}"
+            )
 
-        # Insufficient stock
-        if medicine.stock_quantity < requested_qty:
-            state["safety"] = {
-                "approved": False,
-                "reason": f"Insufficient stock for {medicine.name}"
-            }
+    approved = len(violations) == 0
 
-            state["decision_trace"].append({
-                "agent": "safety_agent",
-                "decision": "REJECTED",
-                "checks": ["inventory_quantity"],
-                "justification": {
-                    "medicine": medicine.name,
-                    "requested": requested_qty,
-                    "available": medicine.stock_quantity
-                }
-            })
-            return state
-
-    # All checks passed
+    # Final safety state
     state["safety"] = {
-        "approved": True,
-        "reason": "All safety and compliance checks passed"
+        "approved": approved,
+        "reason": (
+            "All safety checks passed"
+            if approved
+            else "Safety violations detected"
+        ),
+        "violations": violations
     }
 
+    # Judge-visible trace (NO internal CoT leakage)
     state["decision_trace"].append({
         "agent": "safety_agent",
-        "decision": "APPROVED",
-        "checks": [
-            "inventory_lookup",
-            "prescription_rule",
-            "inventory_quantity"
-        ],
-        "justification": "Medicines are in stock and do not require a prescription"
+        "input": medicines,
+        "reasoning": reasoning_steps,
+        "decision": "approved" if approved else "blocked",
+        "output": state["safety"]
     })
 
+    db.close()
     return state
