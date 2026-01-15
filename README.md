@@ -70,38 +70,10 @@ User → /chat API
 
 ---
 
-## ⚙️ How to Run (Local)
+##📦 Installation Guide
 
-### 1. Create virtual environment
+### 1. How to install
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-2. Initialize database
-python3 -m backend.app.db.seed_data
-
-3. Start server
-uvicorn backend.app.main:app --reload
-
-4. Open Swagger
-http://127.0.0.1:8000/docs
-
-💬 Chat API Example
-curl -X POST http://127.0.0.1:8000/chat/ \
-  -H "Content-Type: application/json" \
-  -d '{"customer_id":1,"message":"I need paracetamol 500mg"}'
-
-
-  
-Response:
-{
-  "approved": true,
-  "reply": "Order placed successfully",
-  "order_id": 3
-}
-
-📦 Installation Guide
 
 This project is designed to run fully offline with free tools.
 
@@ -174,3 +146,37 @@ curl -X POST http://127.0.0.1:8000/chat/ \
 🐳 Docker Installation (Optional)
 docker build -t agentic-pharmacy .
 docker run -p 8000:8000 agentic-pharmacy
+
+
+
+## ⚙️ How to Run (Local)
+
+### 2. Create virtual environment
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+2. Initialize database
+python3 -m backend.app.db.seed_data
+
+3. Start server
+uvicorn backend.app.main:app --reload
+
+4. Open Swagger
+http://127.0.0.1:8000/docs
+
+💬 Chat API Example
+curl -X POST http://127.0.0.1:8000/chat/ \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id":1,"message":"I need paracetamol 500mg"}'
+
+
+  
+Response:
+{
+  "approved": true,
+  "reply": "Order placed successfully",
+  "order_id": 3
+}
+
