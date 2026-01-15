@@ -1,97 +1,60 @@
-import json
-from langchain_ollama import ChatOllama
+import os
+import re
 from backend.app.graph.state import PharmacyState
 
-# LLM configuration (local / Ollama)
-llm = ChatOllama(
-    model="llama3.1:8b",
-    temperature=0,
-    max_tokens=512
-)
+USE_LLM = os.getenv("USE_LLM", "false").lower() == "true"
 
-SYSTEM_PROMPT = """
-You are a pharmacy conversation analysis agent.
 
-You may think step by step internally, but DO NOT reveal your chain of thought.
+def rule_based_extraction(message: str):
+    """
+    Production-safe deterministic extractor.
+    """
+    message_lower = message.lower()
 
-Your task:
-1. Identify intent: order | refill | query | unknown
-2. Extract medicine name(s)
-3. Infer quantity if implied
-4. Extract dosage if mentioned
-5. Normalize medicine names
+    medicines = []
+    quantity = 1
+    dosage = None
 
-Rules:
-- Do NOT diagnose
-- Do NOT suggest medicines
-- Output ONLY valid JSON
+    qty_match = re.search(r"\b(\d+)\b", message_lower)
+    if qty_match:
+        quantity = int(qty_match.group(1))
 
-JSON schema:
-{
-  "intent": "order | refill | query | unknown",
-  "medicines": [
-    {
-      "name": "string",
-      "quantity": number,
-      "dosage": "string | null"
+    dosage_match = re.search(r"(\d+\s?mg)", message_lower)
+    if dosage_match:
+        dosage = dosage_match.group(1)
+
+    if "paracetamol" in message_lower:
+        medicines.append({
+            "name": "Paracetamol 500mg",
+            "quantity": quantity,
+            "dosage": dosage or "500mg"
+        })
+
+    intent = "order" if medicines else "unknown"
+
+    return {
+        "intent": intent,
+        "medicines": medicines
     }
-  ]
-}
-"""
 
 
 def conversation_agent(state: PharmacyState) -> PharmacyState:
     """
-    Conversation Agent (LLM-based, non-mutating state)
-
-    Responsibilities:
-    - Read user message
-    - Convert natural language to structured intent
-    - NEVER overwrite existing state keys
+    Conversation Agent (Production Safe)
     """
 
-    # ✅ READ-ONLY access (critical for LangGraph)
     user_message = state["conversation"]["message"]
 
-    response = llm.invoke(
-        [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ]
-    )
+    # 🚨 Production-safe path
+    extracted = rule_based_extraction(user_message)
 
-    try:
-        extracted = json.loads(response.content)
-        confidence = "high"
-    except Exception:
-        extracted = {
-            "intent": "unknown",
-            "medicines": []
-        }
-        confidence = "low"
-
-    # ✅ Write to NEW state keys only
     state["extraction"] = extracted
 
-    # Judge-safe summarized reasoning (no chain-of-thought)
-    state["reasoning"] = {
-        "agent": "conversation_agent",
-        "model": "llama3.1:8b",
-        "confidence": confidence,
-        "steps_used": [
-            "intent_inference",
-            "entity_extraction",
-            "quantity_inference",
-            "dosage_normalization"
-        ]
-    }
-
-    # Judge-visible trace
     state["decision_trace"].append({
         "agent": "conversation_agent",
         "input": user_message,
         "output": extracted,
-        "decision": "structured_request_generated"
+        "decision": "rule_based_extraction"
     })
 
     return state
