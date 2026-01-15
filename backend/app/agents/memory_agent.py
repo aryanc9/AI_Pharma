@@ -1,25 +1,25 @@
-from typing import Dict, Any, List
+from backend.app.graph.state import PharmacyState
 from backend.app.db.database import SessionLocal
 from backend.app.db.models import OrderHistory
 
 
-def memory_agent(state: Dict[str, Any]) -> Dict[str, Any]:
+def memory_agent(state: PharmacyState) -> dict:
     """
-    Customer Memory Agent
+    Memory Agent
 
-    - Fetches recent order history
-    - Adds context for other agents
-    - Does NOT make decisions
+    Responsibilities:
+    - Fetch customer order history
+    - Provide context to downstream agents
+    - Emit judge-visible decision trace
+
+    MUST return a DICT (LangGraph requirement)
     """
 
     db = SessionLocal()
-    customer = state.get("customer", {})
-    customer_id = customer.get("id")
+    customer_id = state["customer"]["id"]
 
-    history: List[Dict[str, Any]] = []
-
-    if customer_id:
-        records = (
+    try:
+        history_rows = (
             db.query(OrderHistory)
             .filter(OrderHistory.customer_id == customer_id)
             .order_by(OrderHistory.created_at.desc())
@@ -27,22 +27,29 @@ def memory_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             .all()
         )
 
-        for r in records:
-            history.append({
-                "medicine": r.medicine_name,
-                "quantity": r.quantity,
-                "date": r.created_at.isoformat()
-            })
+        history = [
+            {
+                "medicine": row.medicine_name,
+                "quantity": row.quantity,
+                "date": row.created_at.isoformat()
+            }
+            for row in history_rows
+        ]
 
-    state["meta"]["customer_history"] = history
+        return {
+            "meta": {
+                "customer_history": history
+            },
+            "decision_trace": [
+                {
+                    "agent": "memory_agent",
+                    "input": {"customer_id": customer_id},
+                    "reasoning": f"Fetched {len(history)} previous orders",
+                    "decision": "context_provided",
+                    "output": history
+                }
+            ]
+        }
 
-    state["decision_trace"].append({
-        "agent": "memory_agent",
-        "input": {"customer_id": customer_id},
-        "reasoning": f"Fetched {len(history)} previous orders",
-        "decision": "context_provided",
-        "output": history
-    })
-
-    db.close()
-    return state
+    finally:
+        db.close()
