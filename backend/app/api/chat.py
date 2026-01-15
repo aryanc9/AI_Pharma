@@ -31,38 +31,29 @@ def chat(request: ChatRequest):
     db = SessionLocal()
 
     try:
-        # 1️⃣ Validate customer
-        customer = (
-            db.query(Customer)
-            .filter(Customer.id == request.customer_id)
-            .first()
-        )
+        customer = db.query(Customer).filter(
+            Customer.id == request.customer_id
+        ).first()
 
         if not customer:
-            raise HTTPException(
-                status_code=404,
-                detail="Customer not found"
-            )
+            raise HTTPException(status_code=404, detail="Customer not found")
 
-        # 2️⃣ Run agentic workflow (with crash visibility)
-        try:
-            final_state = run_workflow(
-                customer_id=customer.id,
-                message=request.message
-            )
-        except Exception as e:
-            # 🔥 This guarantees visibility in Railway logs
-            print("🔥 WORKFLOW CRASH:", repr(e))
-            raise HTTPException(
-                status_code=500,
-                detail=f"Workflow error: {str(e)}"
-            )
+        final_state = run_workflow(
+            customer_id=customer.id,
+            message=request.message
+        )
 
-        # 3️⃣ Interpret result
         safety = final_state.get("safety", {})
         execution = final_state.get("execution", {})
 
-        if not safety.get("approved", False):
+        if safety.get("needs_clarification"):
+            return ChatResponse(
+                approved=False,
+                reply=" ".join(safety.get("questions", [])),
+                order_id=None
+            )
+
+        if not safety.get("approved"):
             return ChatResponse(
                 approved=False,
                 reply="Request blocked by safety rules",

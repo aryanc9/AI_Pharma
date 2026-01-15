@@ -5,8 +5,7 @@ from backend.app.db.models import OrderHistory
 
 
 def predictive_refill_agent(state: PharmacyState) -> PharmacyState:
-    # 🚨 HARD ASSERTION
-    assert isinstance(state, dict), f"STATE CORRUPTED in predictive_refill_agent: {type(state)}"
+    assert isinstance(state, dict), f"STATE CORRUPTED: {type(state)}"
 
     db = SessionLocal()
     try:

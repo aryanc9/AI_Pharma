@@ -4,8 +4,7 @@ from backend.app.db.models import OrderHistory
 
 
 def memory_agent(state: PharmacyState) -> PharmacyState:
-    # 🚨 HARD ASSERTION
-    assert isinstance(state, dict), f"STATE CORRUPTED in memory_agent: {type(state)}"
+    assert isinstance(state, dict), f"STATE CORRUPTED: {type(state)}"
 
     db = SessionLocal()
     try:

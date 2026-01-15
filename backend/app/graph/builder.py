@@ -9,8 +9,6 @@ from backend.app.agents.predictive_refill_agent import predictive_refill_agent
 
 
 def build_pharmacy_graph():
-    assert isinstance(state, dict), f"STATE CORRUPTED: {type(state)}"
-
     graph = StateGraph(PharmacyState)
 
     graph.add_node("memory_agent", memory_agent)

@@ -1,49 +1,35 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# --------------------------------------------------
-# Database path
-# --------------------------------------------------
-# Railway / Docker → use container filesystem
-# Local → defaults to pharmacy.db in project root
-DB_PATH = os.getenv("DB_PATH", "pharmacy.db")
+from backend.app.db.base import Base
 
-DATABASE_URL = f"sqlite:///{DB_PATH}"
-
-# --------------------------------------------------
-# Engine
-# --------------------------------------------------
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Required for SQLite + FastAPI
-    echo=False
+# SQLite for local, Railway provides DATABASE_URL
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./pharmacy.db"
 )
 
-# --------------------------------------------------
-# Session
-# --------------------------------------------------
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False}
+    if DATABASE_URL.startswith("sqlite")
+    else {}
+)
+
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
 
-# --------------------------------------------------
-# Base
-# --------------------------------------------------
-Base = declarative_base()
 
-
-# --------------------------------------------------
-# Dependency (optional but recommended)
-# --------------------------------------------------
-def get_db():
+def init_db():
     """
-    FastAPI dependency for DB session
+    Initialize database tables.
+    IMPORTANT:
+    - models import MUST be inside this function
+    - prevents circular imports
     """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    from backend.app.db import models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
