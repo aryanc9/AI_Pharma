@@ -4,19 +4,13 @@ from backend.app.db.models import OrderHistory
 
 
 def memory_agent(state: PharmacyState) -> PharmacyState:
-    """
-    Memory Agent
-
-    Responsibilities:
-    - Fetch customer order history
-    - Provide context for downstream agents
-    - NEVER overwrite state keys
-    """
+    # 🚨 HARD ASSERTION
+    assert isinstance(state, dict), f"STATE CORRUPTED in memory_agent: {type(state)}"
 
     db = SessionLocal()
-    customer_id = state["customer"]["id"]
-
     try:
+        customer_id = state["customer"]["id"]
+
         history = (
             db.query(OrderHistory)
             .filter(OrderHistory.customer_id == customer_id)
@@ -29,21 +23,19 @@ def memory_agent(state: PharmacyState) -> PharmacyState:
             {
                 "medicine": h.medicine_name,
                 "quantity": h.quantity,
-                "date": h.created_at.isoformat()
+                "date": h.created_at.isoformat(),
             }
             for h in history
         ]
 
-        # Store in meta only
         state["meta"]["customer_history"] = history_payload
 
-        # Judge-visible trace
         state["decision_trace"].append({
             "agent": "memory_agent",
             "input": {"customer_id": customer_id},
             "reasoning": f"Fetched {len(history_payload)} previous orders",
             "decision": "context_provided",
-            "output": history_payload
+            "output": history_payload,
         })
 
         return state
