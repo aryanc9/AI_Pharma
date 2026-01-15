@@ -101,4 +101,76 @@ Response:
   "order_id": 3
 }
 
+📦 Installation Guide
 
+This project is designed to run fully offline with free tools.
+
+Prerequisites
+
+Ensure you have the following installed:
+
+Python 3.9+
+
+pip
+
+Git
+
+(Optional) Ollama for local LLM inference
+
+Verify versions:
+python3 --version
+pip --version
+git --version
+
+Step 1: Clone the Repository
+git clone https://github.com/<your-username>/agentic-ai-pharmacy.git
+cd agentic-ai-pharmacy
+
+Step 2: Create and Activate Virtual Environment
+python3 -m venv venv
+source venv/bin/activate
+
+On Windows:
+venv\Scripts\activate
+
+Step 3: Install Python Dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+
+Step 4: (Optional) Install Local LLM with Ollama
+
+If you want local, offline LLM reasoning:
+brew install ollama
+ollama pull llama3.1:8b
+ollama serve
+
+Step 5: Initialize Database
+python3 -m backend.app.db.seed_data
+
+This creates:
+
+Medicines
+
+Customers
+
+Sample inventory
+
+Safety rules baseline
+Step 6: Start the Server
+uvicorn backend.app.main:app --reload
+
+Server runs at:http://127.0.0.1:8000
+
+Step 7: Verify Installation
+
+Open Swagger UI:
+http://127.0.0.1:8000/docs
+
+Test chat endpoint:
+curl -X POST http://127.0.0.1:8000/chat/ \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id":1,"message":"I need paracetamol 500mg"}'
+
+🐳 Docker Installation (Optional)
+docker build -t agentic-pharmacy .
+docker run -p 8000:8000 agentic-pharmacy
