@@ -1,27 +1,25 @@
-from backend.app.db.database import SessionLocal
+from backend.app.db.database import SessionLocal, engine, Base
 from backend.app.db.models import Customer, Medicine
 
-
 def seed_production_data():
-    db = SessionLocal()
+    # 1️⃣ Ensure tables exist
+    Base.metadata.create_all(bind=engine)
 
+    db = SessionLocal()
     try:
-        # -------------------------
-        # Seed customer
-        # -------------------------
+        # 2️⃣ Seed default customer
         customer = db.query(Customer).first()
         if not customer:
-            customer = Customer(
-                id=1,
-                name="Test User",
-                phone="9999999999"
+            db.add(
+                Customer(
+                    name="Demo User",
+                    phone="0000000000",
+                    email="demo@aipharma.com",
+                    is_new_user=False
+                )
             )
-            db.add(customer)
-            db.commit()
 
-        # -------------------------
-        # Seed medicines
-        # -------------------------
+        # 3️⃣ Seed medicines
         if db.query(Medicine).count() == 0:
             db.add_all([
                 Medicine(
@@ -35,7 +33,7 @@ def seed_production_data():
                     prescription_required=True
                 )
             ])
-            db.commit()
 
+        db.commit()
     finally:
         db.close()
