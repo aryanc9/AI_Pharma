@@ -29,3 +29,14 @@ class PharmacyState(TypedDict):
     execution: ExecutionResult
     decision_trace: List[AgentDecision]
     meta: Dict[str, Any]
+
+class PharmacyState(TypedDict):
+    conversation: Dict[str, str]   # INPUT ONLY
+    customer: Dict[str, Any]
+
+    extraction: Dict[str, Any]
+    safety: Dict[str, Any]
+    execution: Dict[str, Any]
+
+    decision_trace: List[Dict[str, Any]]
+    meta: Dict[str, Any]
