@@ -38,23 +38,19 @@ def rule_based_extraction(message: str):
     }
 
 
-def conversation_agent(state: PharmacyState) -> PharmacyState:
-    """
-    Conversation Agent (Production Safe)
-    """
+def conversation_agent(state: PharmacyState):
+    extracted = {...}
 
-    user_message = state["conversation"]["message"]
+    return {
+        "extraction": extracted,
+        "reasoning": {...},
+        "decision_trace": [
+            {
+                "agent": "conversation_agent",
+                "input": state["conversation"]["message"],
+                "output": extracted,
+                "why": "Converted natural language into structured request"
+            }
+        ]
+    }
 
-    # 🚨 Production-safe path
-    extracted = rule_based_extraction(user_message)
-
-    state["extraction"] = extracted
-
-    state["decision_trace"].append({
-        "agent": "conversation_agent",
-        "input": user_message,
-        "output": extracted,
-        "decision": "rule_based_extraction"
-    })
-
-    return state
