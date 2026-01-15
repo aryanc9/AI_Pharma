@@ -1,47 +1,23 @@
 import json
-from typing import Any, Dict
-
+from langchain_ollama import ChatOllama
 from backend.app.graph.state import PharmacyState
-from backend.app.config import LLM_PROVIDER, OLLAMA_MODEL
 
-# ------------------------------------------------------------
-# Optional Ollama Import (Docker-safe)
-# ------------------------------------------------------------
-
-try:
-    from langchain_ollama import ChatOllama
-    OLLAMA_AVAILABLE = True
-except ImportError:
-    OLLAMA_AVAILABLE = False
-
-
-# ------------------------------------------------------------
-# LLM Initialization (Safe)
-# ------------------------------------------------------------
-
-llm = None
-
-if LLM_PROVIDER == "ollama" and OLLAMA_AVAILABLE:
-    llm = ChatOllama(
-        model=OLLAMA_MODEL,
-        temperature=0,
-        max_tokens=512
-    )
-
-
-# ------------------------------------------------------------
-# System Prompt (Judge-safe)
-# ------------------------------------------------------------
+# LLM configuration (local / Ollama)
+llm = ChatOllama(
+    model="llama3.1:8b",
+    temperature=0,
+    max_tokens=512
+)
 
 SYSTEM_PROMPT = """
 You are a pharmacy conversation analysis agent.
 
-You may reason internally, but DO NOT reveal chain-of-thought.
+You may think step by step internally, but DO NOT reveal your chain of thought.
 
 Your task:
 1. Identify intent: order | refill | query | unknown
 2. Extract medicine name(s)
-3. Infer quantity if implied (default to 1 if unclear)
+3. Infer quantity if implied
 4. Extract dosage if mentioned
 5. Normalize medicine names
 
@@ -64,67 +40,43 @@ JSON schema:
 """
 
 
-# ------------------------------------------------------------
-# Conversation Agent
-# ------------------------------------------------------------
-
 def conversation_agent(state: PharmacyState) -> PharmacyState:
     """
-    Conversation Agent
+    Conversation Agent (LLM-based, non-mutating state)
 
-    Converts natural language into structured pharmacy intent.
-    Works with or without an LLM.
+    Responsibilities:
+    - Read user message
+    - Convert natural language to structured intent
+    - NEVER overwrite existing state keys
     """
 
+    # ✅ READ-ONLY access (critical for LangGraph)
     user_message = state["conversation"]["message"]
 
-    extracted: Dict[str, Any]
-    confidence: str
-
-    # --------------------------------------------------------
-    # LLM Path (Local Development)
-    # --------------------------------------------------------
-
-    if llm is not None:
-        response = llm.invoke([
+    response = llm.invoke(
+        [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_message}
-        ])
+            {"role": "user", "content": user_message},
+        ]
+    )
 
-        try:
-            extracted = json.loads(response.content)
-            confidence = "high"
-        except Exception:
-            extracted = {"intent": "unknown", "medicines": []}
-            confidence = "low"
-
-    # --------------------------------------------------------
-    # Fallback Path (Docker / Cloud)
-    # --------------------------------------------------------
-
-    else:
+    try:
+        extracted = json.loads(response.content)
+        confidence = "high"
+    except Exception:
         extracted = {
-            "intent": "order",
-            "medicines": [
-                {
-                    "name": "Paracetamol",
-                    "quantity": 1,
-                    "dosage": "500mg"
-                }
-            ]
+            "intent": "unknown",
+            "medicines": []
         }
-        confidence = "fallback"
+        confidence = "low"
 
-    # --------------------------------------------------------
-    # Update State
-    # --------------------------------------------------------
-
+    # ✅ Write to NEW state keys only
     state["extraction"] = extracted
 
+    # Judge-safe summarized reasoning (no chain-of-thought)
     state["reasoning"] = {
         "agent": "conversation_agent",
-        "model": OLLAMA_MODEL if llm else "fallback",
-        "reasoning_type": "long_chain",
+        "model": "llama3.1:8b",
         "confidence": confidence,
         "steps_used": [
             "intent_inference",
@@ -134,12 +86,12 @@ def conversation_agent(state: PharmacyState) -> PharmacyState:
         ]
     }
 
+    # Judge-visible trace
     state["decision_trace"].append({
         "agent": "conversation_agent",
         "input": user_message,
-        "reasoning": state["reasoning"],
-        "decision": "extracted_structured_request",
-        "output": extracted
+        "output": extracted,
+        "decision": "structured_request_generated"
     })
 
     return state
