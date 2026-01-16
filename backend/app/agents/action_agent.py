@@ -1,7 +1,7 @@
-from backend.app.graph.state import PharmacyState
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import Medicine
-from backend.app.services.order_service import create_order
+from app.graph.state import PharmacyState
+from app.db.database import SessionLocal
+from app.db.models import Medicine
+from app.services.order_service import create_order
 
 
 def action_agent(state: PharmacyState) -> PharmacyState:

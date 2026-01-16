@@ -1,7 +1,7 @@
 import pytest
-from backend.app.graph.pharmacy_workflow import run_workflow
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import Medicine, OrderHistory, Customer
+from app.graph.pharmacy_workflow import run_workflow
+from app.db.database import SessionLocal
+from app.db.models import Medicine, OrderHistory, Customer
 
 
 @pytest.mark.integration

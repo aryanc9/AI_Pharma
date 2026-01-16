@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
-from backend.app.db.database import SessionLocal
-from backend.app.services.order_service import get_customer_history
+from app.db.database import SessionLocal
+from app.services.order_service import get_customer_history
 
 def predictive_agent(customer_id: int):
     db = SessionLocal()

@@ -1,6 +1,7 @@
-from fastapi import APIRouter
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import Customer
+from fastapi import APIRouter, Depends
+from app.db.database import SessionLocal
+from app.db.models import Customer
+from app.security.admin_auth import admin_auth
 
 """
 Customers Admin API
@@ -17,7 +18,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(admin_auth)])
 def list_customers():
     """
     List all customers.
@@ -35,7 +36,7 @@ def list_customers():
         db.close()
 
 
-@router.get("/{customer_id}")
+@router.get("/{customer_id}", dependencies=[Depends(admin_auth)])
 def get_customer(customer_id: int):
     """
     Get a single customer by ID.

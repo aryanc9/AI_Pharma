@@ -1,7 +1,7 @@
 import time
-from backend.app.autonomy.refill_engine import run_refill_engine
+from app.autonomy.refill_engine import run_refill_engine
 
-from backend.app.config import REFILL_INTERVAL_SECONDS
+from app.config import REFILL_INTERVAL_SECONDS
 
 
 def start_scheduler():

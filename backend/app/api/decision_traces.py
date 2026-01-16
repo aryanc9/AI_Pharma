@@ -1,6 +1,7 @@
-from fastapi import APIRouter
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import DecisionTrace
+from fastapi import APIRouter, Depends
+from app.db.database import SessionLocal
+from app.db.models import DecisionTrace
+from app.security.admin_auth import admin_auth
 
 """
 Decision Traces Admin API
@@ -17,7 +18,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(admin_auth)])
 def list_decision_traces(limit: int = 50):
     """
     List recent decision traces.
@@ -38,7 +39,7 @@ def list_decision_traces(limit: int = 50):
         db.close()
 
 
-@router.get("/{trace_id}")
+@router.get("/{trace_id}", dependencies=[Depends(admin_auth)])
 def get_decision_trace(trace_id: int):
     """
     Get a single decision trace by ID.

@@ -1,17 +1,21 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import Customer
-from backend.app.graph.pharmacy_workflow import run_workflow
+from app.db.database import SessionLocal
+from app.db.models import Customer
+from app.graph.pharmacy_workflow import run_workflow
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-# -----------------------------
-# Request / Response Models
-# -----------------------------
+# 2️⃣ API RESPONSE SHAPING (Frontend-oriented)
+# ChatResponse now supports:
+# - approved: bool
+# - error_type: VALIDATION, SAFETY, SYSTEM, or None
+# - violations: list of specific errors
+# - clarification_questions: list of missing info to ask user
+
 class ChatRequest(BaseModel):
     customer_id: int
     message: str
@@ -21,13 +25,21 @@ class ChatResponse(BaseModel):
     approved: bool
     reply: str
     order_id: Optional[int] = None
+    error_type: Optional[str] = None  # VALIDATION, SAFETY, SYSTEM, or None if approved
+    violations: Optional[List[str]] = None  # Detailed error information
+    clarification_questions: Optional[List[str]] = None  # Missing info to ask user
 
 
-# -----------------------------
-# Chat Endpoint
-# -----------------------------
 @router.post("/", response_model=ChatResponse)
 def chat(request: ChatRequest):
+    """
+    Chat endpoint with structured error responses.
+    
+    Decision types:
+    - approved: Order placed
+    - clarification_required: Ask user for more info, no violation
+    - blocked: Safety violation, cannot proceed
+    """
     db = SessionLocal()
 
     try:
@@ -45,25 +57,39 @@ def chat(request: ChatRequest):
 
         safety = final_state.get("safety", {})
         execution = final_state.get("execution", {})
+        decision = safety.get("decision", "blocked")
 
-        if safety.get("needs_clarification"):
+        # 1C️⃣ CLARIFICATION INSTEAD OF HARD BLOCK
+        # If clarification_required, ask the user
+        if decision == "clarification_required":
             return ChatResponse(
                 approved=False,
-                reply=" ".join(safety.get("questions", [])),
-                order_id=None
+                reply="Please provide more information: " + "; ".join(safety.get("clarification_questions", [])),
+                order_id=None,
+                error_type=None,  # Not an error, just missing info
+                violations=None,
+                clarification_questions=safety.get("clarification_questions", [])
             )
 
+        # If blocked, return structured error
         if not safety.get("approved"):
             return ChatResponse(
                 approved=False,
-                reply="Request blocked by safety rules",
-                order_id=None
+                reply=safety.get("reason", "Request blocked by safety rules"),
+                order_id=None,
+                error_type=safety.get("error_type", "SAFETY"),
+                violations=safety.get("violations", []),
+                clarification_questions=None
             )
 
+        # Success
         return ChatResponse(
             approved=True,
             reply="Order placed successfully",
-            order_id=execution.get("order_id")
+            order_id=execution.get("order_id"),
+            error_type=None,
+            violations=None,
+            clarification_questions=None
         )
 
     finally:

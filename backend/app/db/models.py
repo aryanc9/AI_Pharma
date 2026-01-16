@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import func
 
-from backend.app.db.base import Base
+from app.db.base import Base
 
 
 # -------------------------

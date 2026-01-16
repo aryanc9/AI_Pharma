@@ -1,7 +1,7 @@
 # backend/app/services/inventory_service.py
 
 from sqlalchemy.orm import Session
-from backend.app.db.models import Medicine
+from app.db.models import Medicine
 
 def get_all_medicines(db: Session):
     return db.query(Medicine).all()

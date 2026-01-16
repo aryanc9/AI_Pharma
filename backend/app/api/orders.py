@@ -1,6 +1,7 @@
-from fastapi import APIRouter
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import OrderHistory
+from fastapi import APIRouter, Depends, HTTPException
+from app.db.database import SessionLocal
+from app.db.models import OrderHistory
+from app.security.admin_auth import admin_auth
 
 """
 Orders Admin API
@@ -17,7 +18,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(admin_auth)])
 def list_orders():
     """
     List all order history records.
@@ -37,5 +38,37 @@ def list_orders():
             .all()
         )
         return orders
+    finally:
+        db.close()
+
+
+@router.get("/{order_id}", dependencies=[Depends(admin_auth)])
+def get_order_detail(order_id: int):
+    """
+    Get details of a specific order history record.
+    
+    Admin-only endpoint.
+    Returns:
+    - id
+    - customer_id
+    - medicine_name
+    - quantity
+    - created_at
+    """
+    db = SessionLocal()
+    try:
+        order = (
+            db.query(OrderHistory)
+            .filter(OrderHistory.id == order_id)
+            .first()
+        )
+        
+        if not order:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Order {order_id} not found"
+            )
+        
+        return order
     finally:
         db.close()

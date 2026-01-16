@@ -1,5 +1,5 @@
-from backend.app.db.database import SessionLocal, engine, Base
-from backend.app.db.models import Customer, Medicine
+from app.db.database import SessionLocal, engine, Base
+from app.db.models import Customer, Medicine
 
 def seed_production_data():
     # 1️⃣ Ensure tables exist

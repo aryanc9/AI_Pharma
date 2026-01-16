@@ -1,6 +1,7 @@
-from fastapi import APIRouter
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import Medicine
+from fastapi import APIRouter, Depends
+from app.db.database import SessionLocal
+from app.db.models import Medicine
+from app.security.admin_auth import admin_auth
 
 """
 Medicines Admin API
@@ -17,7 +18,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(admin_auth)])
 def list_medicines():
     """
     List all medicines in inventory.

@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.app.db.base import Base
+from app.db.base import Base
 
 # SQLite for local, Railway provides DATABASE_URL
 DATABASE_URL = os.getenv(
@@ -31,5 +31,5 @@ def init_db():
     - models import MUST be inside this function
     - prevents circular imports
     """
-    from backend.app.db import models  # noqa: F401
+    from app.db import models  # noqa: F401
     Base.metadata.create_all(bind=engine)

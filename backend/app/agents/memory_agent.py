@@ -1,6 +1,6 @@
-from backend.app.graph.state import PharmacyState
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import OrderHistory
+from app.graph.state import PharmacyState
+from app.db.database import SessionLocal
+from app.db.models import OrderHistory
 
 
 def memory_agent(state: PharmacyState) -> PharmacyState:

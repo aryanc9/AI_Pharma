@@ -1,6 +1,6 @@
 from datetime import datetime
-from backend.app.db.database import SessionLocal
-from backend.app.db.models import OrderHistory, RefillAlert, Customer
+from app.db.database import SessionLocal
+from app.db.models import OrderHistory, RefillAlert, Customer
 
 DEFAULT_DAYS_PER_UNIT = 1  # Explicit assumption
 

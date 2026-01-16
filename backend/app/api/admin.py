@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from backend.app.security.admin_auth import admin_auth
+from app.security.admin_auth import admin_auth
 
 """
 Admin Router

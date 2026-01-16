@@ -1,11 +1,11 @@
 from langgraph.graph import StateGraph, END
-from backend.app.graph.state import PharmacyState
+from app.graph.state import PharmacyState
 
-from backend.app.agents.memory_agent import memory_agent
-from backend.app.agents.conversation_agent import conversation_agent
-from backend.app.agents.safety_agent import safety_agent
-from backend.app.agents.action_agent import action_agent
-from backend.app.agents.predictive_refill_agent import predictive_refill_agent
+from app.agents.memory_agent import memory_agent
+from app.agents.conversation_agent import conversation_agent
+from app.agents.safety_agent import safety_agent
+from app.agents.action_agent import action_agent
+from app.agents.predictive_refill_agent import predictive_refill_agent
 
 
 def build_pharmacy_graph():
